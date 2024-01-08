@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import path from "path";
 import ejs from "ejs";
 import sendMail from "../utils/sendMail";
+import NotificationModel from "../models/notification.model";
 
 // upload course
 export const uploadCourse = CatchAsyncError(
@@ -160,6 +161,60 @@ export const getCourseByUser = CatchAsyncError(
 			res.status(200).json({
 				success: true,
 				content,
+			});
+		} catch (error: any) {
+			return next(new ErrorHandler(error.message, 500));
+		}
+	}
+);
+
+// add question in course
+interface IAddQuestionData {
+	question: string;
+	courseId: string;
+	contentId: string;
+}
+
+export const addQuestion = CatchAsyncError(
+	async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { question, courseId, contentId }: IAddQuestionData = req.body;
+			const course = await CourseModel.findById(courseId);
+
+			if (!mongoose.Types.ObjectId.isValid(contentId)) {
+				return next(new ErrorHandler("Invalid content id", 400));
+			}
+
+			const couseContent = course?.courseData?.find((item: any) =>
+				item._id.equals(contentId)
+			);
+
+			if (!couseContent) {
+				return next(new ErrorHandler("Invalid content id", 400));
+			}
+
+			// create a new question object
+			const newQuestion: any = {
+				user: req.user,
+				question,
+				questionReplies: [],
+			};
+
+			// add this question to our course content
+			couseContent.questions.push(newQuestion);
+
+			await NotificationModel.create({
+				user: req.user?._id,
+				title: "New Question Received",
+				message: `You have a new question in ${couseContent.title}`,
+			});
+
+			// save the updated course
+			await course?.save();
+
+			res.status(200).json({
+				success: true,
+				course,
 			});
 		} catch (error: any) {
 			return next(new ErrorHandler(error.message, 500));
