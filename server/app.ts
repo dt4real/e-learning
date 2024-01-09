@@ -7,6 +7,7 @@ import userRouter from "./routes/user.route";
 import courseRouter from "./routes/course.route";
 import notificationRoute from "./routes/notification.route";
 import orderRouter from "./routes/order.route";
+import analyticsRouter from "./routes/analytics.route";
 export const app = express();
 
 // body parser
@@ -21,7 +22,7 @@ app.use(cors({
 }));
 
 // api routes
-app.use("/api/v1/", userRouter, courseRouter, notificationRoute, orderRouter);
+app.use("/api/v1/", userRouter, courseRouter, notificationRoute, orderRouter, analyticsRouter);
 
 // testing api
 app.get("/test", (req:Request, res:Response, next:NextFunction) => {
