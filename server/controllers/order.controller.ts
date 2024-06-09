@@ -7,6 +7,8 @@ import CourseModel, { ICourse } from "../models/course.model";
 import sendMail from "../utils/sendMail";
 import { redis } from "../utils/redis";
 import NotificationModel from "../models/notification.model";
+require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 
 // create order
@@ -14,6 +16,19 @@ export const createOrder = CatchAsyncError(
 	async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { courseId, payment_info } = req.body as IOrder;
+
+			if (payment_info) {
+				if ("id" in payment_info) {
+				  const paymentIntentId = payment_info.id;
+				  const paymentIntent = await stripe.paymentIntents.retrieve(
+					paymentIntentId
+				  );
+		
+				  if (paymentIntent.status !== "succeeded") {
+					return next(new ErrorHandler("Payment not authorized!", 400));
+				  }
+				}
+			}
 
 			const user = await userModel.findById(req.user?._id);
 
@@ -106,5 +121,39 @@ export const getAllOrders = CatchAsyncError(
 		} catch (error: any) {
 			return next(new ErrorHandler(error.message, 500));
 		}
+	}
+);
+
+//  send stripe publishble key
+export const sendStripePublishableKey = CatchAsyncError(
+	async (req: Request, res: Response) => {
+	  res.status(200).json({
+		publishablekey: process.env.STRIPE_PUBLISHABLE_KEY,
+	  });
+	}
+);
+
+// new payment
+export const newPayment = CatchAsyncError(
+	async (req: Request, res: Response, next: NextFunction) => {
+	  try {
+		const myPayment = await stripe.paymentIntents.create({
+		  amount: req.body.amount,
+		  currency: "USD",
+		  metadata: {
+			company: "E-Learning",
+		  },
+		  automatic_payment_methods: {
+			enabled: true,
+		  },
+		});
+  
+		res.status(201).json({
+		  success: true,
+		  client_secret: myPayment.client_secret,
+		});
+	  } catch (error: any) {
+		return next(new ErrorHandler(error.message, 500));
+	  }
 	}
 );
